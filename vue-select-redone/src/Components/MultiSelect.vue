@@ -15,7 +15,7 @@
                 v-for="(option, index) in options" 
                 :id="`${selectId}-option-${index}`"
                 :key="index" class="option" 
-                :class="{'hovered-option': index === hoveredIndex}" 
+                :class="{'hovered-option': index === hoveredIndex, 'hovered-option-selected': selectedOptions.includes(option) && index === hoveredIndex}"
                 @mouseover="hoverOption(index, option)"
                 @mouseout="hoveredIndex = hoveredOption = null"
                 @click="selectOption(hoveredOption)">
@@ -63,8 +63,14 @@ export default {
 
     methods: {
         hoverOption(index, option){
-            this.hoveredIndex = index;
+            if(this.selectedOptions.includes(option)){
+                this.hoveredIndex = (index+1) * -1;
+            }
+            else{
+                this.hoveredIndex = index;
+            }
             this.hoveredOption = option;
+
         },
         keyup(){
             if(this.hoveredIndex == null){
@@ -214,6 +220,7 @@ export default {
         list-style-type: none;
         margin: 0;
         padding: 0;
+        cursor: pointer;
     }
 
     .option{
@@ -221,7 +228,9 @@ export default {
     }
     .hovered-option{
         background-color: lightgray;
-        cursor: pointer;
+    }
+    .hovered-option-selected{
+        background-color: red;
     }
 </style>
 
