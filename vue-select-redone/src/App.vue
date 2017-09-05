@@ -1,6 +1,20 @@
 <template>
     <div id="app">
-        <multi-select :options="optionStrings"></multi-select>
+        <multi-select 
+        :options="optionStrings"
+        :closeOnSelect="false"
+        v-model="selectedString"
+        ></multi-select>
+        <pre style="background-color: lightgrey">{{selectedString}}</pre>
+
+        <multi-select 
+        :options="optionObjects"
+        :searcheable="true"
+        :placeHolder="'Click to Select!'"
+        :multiselect="true"
+        v-model="selectedObject"
+        ></multi-select>
+        <pre style="background-color: lightgrey">{{selectedObject}}</pre>
     </div>
 </template>
 
@@ -13,7 +27,9 @@ export default {
         return {
             optionObjects: null,
             optionNumbers: null,
-            optionStrings: null
+            optionStrings: null,
+            selectedString: null,
+            selectedObject: null
         }
     },
     components:{
