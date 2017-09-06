@@ -1,17 +1,20 @@
 <template>
     <div id="app">
-        <multi-select 
+        <multi-select v-if="optionStrings != null"
         :options="optionStrings"
         :closeOnSelect="false"
+        :hideSelected="true"
         v-model="selectedString"
         ></multi-select>
         <pre style="background-color: lightgrey">{{selectedString}}</pre>
 
-        <multi-select 
+        <multi-select v-if="optionObjects != null"
         :options="optionObjects"
         :searcheable="true"
         :placeHolder="'Click to Select!'"
         :multiselect="true"
+        :closeOnSelect="false"
+        :hideSelected="true"
         v-model="selectedObject"
         ></multi-select>
         <pre style="background-color: lightgrey">{{selectedObject}}</pre>
