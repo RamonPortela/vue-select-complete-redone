@@ -4,6 +4,7 @@
         :options="optionStrings"
         :closeOnSelect="false"
         :hideSelected="true"
+        :label = "'fdsfdsa'"
         v-model="selectedString"
         ></multi-select>
         <pre style="background-color: lightgrey">{{selectedString}}</pre>
@@ -14,7 +15,8 @@
         :placeHolder="'Click to Select!'"
         :multiselect="true"
         :closeOnSelect="false"
-        :hideSelected="true"
+        :label = "'Pais'"
+        :removeSelection="true"
         v-model="selectedObject"
         ></multi-select>
         <pre style="background-color: lightgrey">{{selectedObject}}</pre>

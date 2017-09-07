@@ -1,9 +1,14 @@
 <template>
-    <div tabindex="-1" name="multiselect-container" class="multiselect" :class="{'multiselect-opened': opened}" @focus="opened = true" @blur="opened = false" @keydown.up.prevent="keyup()" @keydown.down.prevent="keydown()" @keydown.enter.self="selectOption(hoveredOption)">
+    <div tabindex="-1" name="multiselect-container" class="multiselect" :class="{'multiselect-opened': opened}" @focus="opened = true" @blur="opened = false" @keydown.up.prevent="keyup()" @keydown.down.prevent="keydown()" @keydown.enter.prevent="selectOption(hoveredOption)" @keydown.esc.prevent="blurInput($event)">
         <div class="multiselect-box">
-            <span v-for="(option, index) in selectedOptions" :key="index">{{option}}</span>
+            <span v-for="(option, index) in selectedOptions" :key="index">{{option[label] || option}}</span>
             <div name="seach" v-if="searcheable">
-                <input type="text" :placeholder="placeHolder" class="multiselect-search">
+                <input type="text" 
+                v-model="search" 
+                :placeholder="placeHolder" 
+                class="multiselect-search" 
+                @focus="opened = true" 
+                @blur="blurInput($event)">
             </div>
             <div name="multiselect" v-else>
                 <span v-if="selectedOptions.length == 0">{{placeHolder}}</span>     
@@ -17,9 +22,9 @@
                 :key="index" class="option"
                 :class="{'hovered-option': index === hoveredIndex, 'hovered-option-selected': selectedOptions.includes(option) && index === hoveredIndex}"
                 @mouseover="hoverOption(index, option)"
-                @mouseout="hoveredIndex = hoveredOption = null"
                 @click="selectOption(option)">
-                    {{option}}
+                    <span v-if="selectedOptions.includes(option) && index === hoveredIndex && removeSelection" class="hovered-option-selected-remove">Remove</span>
+                    {{option[label] || option}}
                 </li>
             </ul>
             <div class="option" v-else>
@@ -62,6 +67,10 @@ export default {
             type: Boolean,
             default: true
         },
+        removeSelection:{
+            type: Boolean,
+            default: false
+        },
         hideSelected:{
             type: Boolean,
             default: false
@@ -69,6 +78,14 @@ export default {
         emptyMessage:{
             type: String,
             default: 'The list is empty'
+        },
+        label:{
+            type: String,
+            default: null
+        },
+        clearSearchOnSelect:{
+            type: Boolean,
+            default: true
         }
     },
 
@@ -108,8 +125,11 @@ export default {
             this.hoveredOption = this.filteredList[this.hoveredIndex];
             let element = document.getElementById(`${this.selectId}-option-${this.hoveredIndex}`);
             if(!this.isElementVisible(element)){
-                console.log(element.parentElement.parentElement.clientHeight);
-                element.parentElement.parentElement.scrollTop = element.parentElement.parentElement.clientHeight;
+                var rect = element.getBoundingClientRect();
+                var rectOptions = element.parentElement.parentElement.getBoundingClientRect();
+                var elementHeight = rect.bottom-rect.top;
+                var optionsHeight = rectOptions.bottom-rectOptions.top;
+                element.parentElement.parentElement.scrollTop = (Number(elementHeight) * this.hoveredIndex) - Number(optionsHeight) + Number(elementHeight);
             }
         },
         isElementVisible(el) {
@@ -132,13 +152,39 @@ export default {
             ||  el.contains(efp(rect.left,  rect.bottom+1))
             );
         },
+        blurInput(event){
+            var clickTarget = event.relatedTarget;
+            if(clickTarget != event.path[3]){
+                this.opened = false;
+            }
+            event.srcElement.blur();
+            this.search = '';
+        },
         selectOption(option){
             if(option == null){
                 return;
             }
 
             if(this.selectedOptions.includes(option)){
-                return;
+                if(this.removeSelection){
+                    for(let i = 0; i < this.selectedOptions.length; i++){
+                        if(this.label){
+                            if(option[this.label] === this.selectedOptions[i][this.label]){
+                                this.selectedOptions.splice(i, 1);
+                                return;
+                            }                            
+                        }
+                        else{
+                            if(option === this.selectedOptions[i]){
+                                this.selectedOptions = this.selectedOptions.splice(i, 1);
+                                return;
+                            }
+                        }
+                    }
+                }
+                else{
+                    return;
+                }
             }
 
             if(this.multiselect){
@@ -153,6 +199,10 @@ export default {
                 this.opened = false;
             }
 
+            if(this.clearSearchOnSelect){
+                this.search = '';
+            }
+
             this.hoveredOption = this.filteredList[this.hoveredIndex];
 
             this.$emit('input', this.selectedComputed);
@@ -162,19 +212,21 @@ export default {
     computed:{
         filteredList(){
             let filteredList;
-
             filteredList = this.options.filter((option) => {
+                let searchedTerm = option[this.label] || option
+
+
                 if(this.hideSelected){
                     if(this.selectedOptions.includes(option))
                     {
                         return false;
                     }
                     else{
-                        return option.toString().toUpperCase().includes(this.search.toUpperCase());
+                        return searchedTerm.toString().toUpperCase().includes(this.search.toUpperCase());
                     }
                 }
                 else{
-                    return option.toString().toUpperCase().includes(this.search.toUpperCase());
+                    return searchedTerm.toString().toUpperCase().includes(this.search.toUpperCase());
                 }
             });
 
@@ -251,6 +303,7 @@ export default {
     }
 
     .option{
+        position: relative;
         padding: 10px;
     }
 
@@ -259,6 +312,11 @@ export default {
     }
     .hovered-option-selected{
         background-color: red;
+    }
+    .hovered-option-selected-remove{
+        position: absolute;
+        width: 95%;
+        text-align: right;
     }
 </style>
 
