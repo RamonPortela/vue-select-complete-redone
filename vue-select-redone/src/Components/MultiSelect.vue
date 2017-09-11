@@ -1,9 +1,10 @@
 <template>
-    <div tabindex="-1" name="multiselect-container" class="multiselect" :class="{'multiselect-opened': opened}" @focus="opened = true" @blur="opened = false" @keydown.up.prevent="keyup()" @keydown.down.prevent="keydown()" @keydown.enter.prevent="selectOption(hoveredOption)" @keydown.esc.prevent="blurInput($event)">
+    <div tabindex="-1" name="multiselect-container" class="multiselect" :class="{'multiselect-opened': opened}" @focus="focusSelect()" @blur="blurSelect($event)" @keydown.up.prevent="keyup()" @keydown.down.prevent="keydown()" @keydown.enter.prevent="selectOption(hoveredOption)" @keydown.esc.prevent="blurInput($event)">
         <div class="multiselect-box">
-            <span v-for="(option, index) in selectedOptions" :key="index">{{option[label] || option}}</span>
-            <div name="seach" v-if="searcheable">
+            <span v-for="(option, index) in selectedOptions" :key="index" :class="{tag: multiselect, 'no-tag': !multiselect}">{{option[label] || option}} <span class="tag-close" @click="selectOption(option)" v-if="multiselect">x</span></span>
+            <div name="search" v-if="showInput">
                 <input type="text" 
+                :id="`${selectId}-search`"
                 v-model="search" 
                 :placeholder="placeHolder" 
                 class="multiselect-search" 
@@ -21,10 +22,11 @@
                 :id="`${selectId}-option-${index}`"
                 :key="index" class="option"
                 :class="{'hovered-option': index === hoveredIndex, 'hovered-option-selected': selectedOptions.includes(option) && index === hoveredIndex}"
-                @mouseover="hoverOption(index, option)"
+                @mouseover.self="hoverOption(index, option)"
+                @mouseout.self.stop="mouseOutOption($event)"
                 @click="selectOption(option)">
                     <span v-if="selectedOptions.includes(option) && index === hoveredIndex && removeSelection" class="hovered-option-selected-remove">Remove</span>
-                    {{option[label] || option}}
+                    <slot name="option-slot" :option="option">{{option[label] || option}}</slot>
                 </li>
             </ul>
             <div class="option" v-else>
@@ -107,7 +109,7 @@ export default {
 
             this.hoveredOption = this.filteredList[this.hoveredIndex];
             let element = document.getElementById(`${this.selectId}-option-${this.hoveredIndex}`);
-            if(!this.isElementVisible(element)){
+            if(!this.isElementVisible(element, false)){
                 element.parentElement.parentElement.scrollTop = element.offsetTop;
             }
         },
@@ -124,41 +126,94 @@ export default {
 
             this.hoveredOption = this.filteredList[this.hoveredIndex];
             let element = document.getElementById(`${this.selectId}-option-${this.hoveredIndex}`);
-            if(!this.isElementVisible(element)){
+            if(!this.isElementVisible(element, true)){
                 var rect = element.getBoundingClientRect();
                 var rectOptions = element.parentElement.parentElement.getBoundingClientRect();
                 var elementHeight = rect.bottom-rect.top;
                 var optionsHeight = rectOptions.bottom-rectOptions.top;
+
                 element.parentElement.parentElement.scrollTop = (Number(elementHeight) * this.hoveredIndex) - Number(optionsHeight) + Number(elementHeight);
             }
         },
-        isElementVisible(el) {
-            ;
-            let rect = el.getBoundingClientRect(el);
-            let vWidth = window.innerWidth || doc.documentElement.clientWidth;
-            let vHeight = window.innerHeight || doc.documentElement.clientHeight;
-            let efp = function (x, y) { return document.elementFromPoint(x, y) };     
+        isElementVisible(el, down) {
+            let elementRect = el.getBoundingClientRect();
+            let elementHeight = elementRect.bottom-elementRect.top;
+            let elementPosition = el.offsetTop + Number(elementHeight);
 
-            // Return false if it's not in the viewport
-            if (rect.right < 0 || rect.bottom < 0 || rect.left > vWidth || rect.top > vHeight)
-                return false;
+            let parentRect = el.parentElement.parentElement.getBoundingClientRect();
+            let parentHeight = parentRect.bottom-parentRect.top;
 
-            // Return true if any of its four corners are visible
+            let visiblePosition;
 
-            return (
-                el.contains(efp(rect.left,  rect.top+1))
-            ||  el.contains(efp(rect.right, rect.top+1))
-            ||  el.contains(efp(rect.right, rect.bottom+1))
-            ||  el.contains(efp(rect.left,  rect.bottom+1))
-            );
+            if(down){
+                if(this.hoveredIndex == 0){
+                    return false;
+                }
+
+                visiblePosition = parentHeight + el.parentElement.parentElement.scrollTop;
+
+                if(elementPosition < visiblePosition){
+                    return true;
+                }
+                else{
+                    return false;
+                }
+            }
+            else{
+                if(this.hoveredIndex == this.options.length-1)
+                {
+                    return false;
+                }
+
+                visiblePosition = parentHeight + el.parentElement.parentElement.scrollTop + elementHeight;
+                
+                if(elementPosition > (Number(visiblePosition) - Number(el.parentElement.parentElement.clientHeight))){
+                    return true;
+                }
+                else{
+                    return false;
+                }
+            }
+        },
+        focusSelect(){
+            this.opened = true;
+            this.$nextTick(() => {
+                if(this.searcheable){
+                    let input = document.getElementById(`${this.selectId}-search`);
+                    input.focus();            
+                }
+            });
+        },
+        blurSelect(event){
+            if(!this.searcheable){
+                this.opened = false;
+                return;
+            }
+            let input = document.getElementById(`${this.selectId}-search`);
+            if(input === event.relatedTarget){
+                this.opened = true;
+                input.focus();
+            }
+            else{
+                this.hoveredIndex = null;
+                this.hoveredOption = null;
+                this.opened = false;
+            }
         },
         blurInput(event){
             var clickTarget = event.relatedTarget;
             if(clickTarget != event.path[3]){
+                this.hoveredIndex = null;
+                this.hoveredOption = null;
                 this.opened = false;
+                this.search = '';
             }
             event.srcElement.blur();
-            this.search = '';
+        },
+        mouseOutOption(event)
+        {
+            this.hoveredIndex = null;
+            this.hoveredOption = null;
         },
         selectOption(option){
             if(option == null){
@@ -239,6 +294,20 @@ export default {
             else{
                 return this.selectedOptions[0];
             }
+        },
+        showInput(){
+            if(!this.searcheable)
+                return false;
+
+            if(this.selectedOptions.length == 0){
+                return true;
+            }
+
+            if(this.selectedOptions.length > 0 && this.opened){
+                return true;
+            }
+
+            return false;
         }
     },
 
@@ -254,6 +323,10 @@ export default {
         border-radius: 10px;
         padding: 10px 5px 10px 5px;
         position: relative;
+    }
+
+    .multiselect * {
+        box-sizing: border-box;
     }
 
     .multiselect-opened{
@@ -274,6 +347,8 @@ export default {
     .multiselect-search{
         border: 0;
         width: 100%;
+        height: 100%;
+        font-size: medium;
     }
 
     .multiselect, .multiselect-search{
@@ -283,7 +358,7 @@ export default {
 
     .options{
         position: absolute;
-        width: 100%;
+        width: calc(100% + 1.5px);
         left: -1px;
         top: 100%;
         border: 1px solid lightgray;
@@ -307,6 +382,10 @@ export default {
         padding: 10px;
     }
 
+    .option *{
+        pointer-events: none;
+    }
+
     .hovered-option, option:hover{
         background-color: lightgray;
     }
@@ -317,6 +396,19 @@ export default {
         position: absolute;
         width: 95%;
         text-align: right;
+    }
+    .no-tag{
+        margin-right: 5px;
+    }
+    .tag{
+        border-radius: 10px;
+        background-color: lightgray;
+        padding: 5px;
+        margin: 0 5px 5px 0;
+    }
+    .tag-close{
+        color: #afafaf;
+        cursor: pointer;
     }
 </style>
 
